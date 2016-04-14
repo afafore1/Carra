@@ -5,10 +5,14 @@
  */
 package scheduler;
 
+import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.swing.JSpinner;
@@ -23,8 +27,9 @@ public class CreateEvent extends javax.swing.JFrame {
 
     public String[] months = new String[]{"null", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
     static final String[] users = {"Users"};
-    static DefaultTableModel _userModel = new DefaultTableModel(users, 6);
+    static DefaultTableModel _userModel = new DefaultTableModel(users, 100);
     Event newEvent;
+    static int _rowCounter = 0;
 
     /**
      * Creates new form CreateEvent
@@ -58,8 +63,16 @@ public class CreateEvent extends javax.swing.JFrame {
         jScrollPane1 = new javax.swing.JScrollPane();
         tblUserTable = new javax.swing.JTable();
         rbnDept = new javax.swing.JRadioButton();
+        txtEventDescr = new javax.swing.JTextField();
+        jLabel6 = new javax.swing.JLabel();
 
         jLabel1.setText("Event Title");
+
+        txtEventName.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtEventNameActionPerformed(evt);
+            }
+        });
 
         jLabel2.setText("Event Date");
 
@@ -85,43 +98,58 @@ public class CreateEvent extends javax.swing.JFrame {
         jScrollPane1.setViewportView(tblUserTable);
 
         rbnDept.setText("Add Department");
+        rbnDept.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                rbnDeptActionPerformed(evt);
+            }
+        });
+
+        txtEventDescr.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                txtEventDescrActionPerformed(evt);
+            }
+        });
+
+        jLabel6.setText("Description");
 
         javax.swing.GroupLayout layout = new javax.swing.GroupLayout(getContentPane());
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(layout.createSequentialGroup()
-                .addGap(20, 20, 20)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel2)
-                        .addGap(18, 18, 18)
-                        .addComponent(jdpDateSelector, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 70, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
-                        .addComponent(txtEventName, javax.swing.GroupLayout.PREFERRED_SIZE, 310, javax.swing.GroupLayout.PREFERRED_SIZE))
-                    .addGroup(layout.createSequentialGroup()
-                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                            .addComponent(btnCreateEvent)
+                        .addGap(20, 20, 20)
+                        .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addGroup(layout.createSequentialGroup()
+                                .addGap(161, 161, 161)
+                                .addComponent(btnCreateEvent))
+                            .addGroup(layout.createSequentialGroup()
+                                .addComponent(jLabel1, javax.swing.GroupLayout.PREFERRED_SIZE, 70, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
+                                    .addComponent(txtEventDescr)
+                                    .addComponent(txtEventName, javax.swing.GroupLayout.DEFAULT_SIZE, 310, Short.MAX_VALUE)))
                             .addGroup(layout.createSequentialGroup()
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addComponent(jLabel3)
-                                    .addComponent(jLabel4)
-                                    .addComponent(jLabel5))
+                                    .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                                        .addComponent(jLabel6, javax.swing.GroupLayout.Alignment.TRAILING)
+                                        .addComponent(jLabel2, javax.swing.GroupLayout.Alignment.TRAILING)
+                                        .addComponent(jLabel3, javax.swing.GroupLayout.Alignment.TRAILING))
+                                    .addComponent(jLabel4))
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
                                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addGap(21, 21, 21)
-                                        .addComponent(cmbPriority, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addGap(18, 18, 18)
-                                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 182, javax.swing.GroupLayout.PREFERRED_SIZE))
-                                    .addGroup(layout.createSequentialGroup()
-                                        .addGap(18, 18, 18)
-                                        .addComponent(jspTimeSelector, javax.swing.GroupLayout.PREFERRED_SIZE, 95, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                                    .addComponent(cmbPriority, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(jspTimeSelector, javax.swing.GroupLayout.PREFERRED_SIZE, 95, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                    .addComponent(jdpDateSelector, javax.swing.GroupLayout.PREFERRED_SIZE, 326, javax.swing.GroupLayout.PREFERRED_SIZE)))))
+                    .addGroup(layout.createSequentialGroup()
+                        .addGap(14, 14, 14)
+                        .addComponent(jLabel5)
                         .addGap(18, 18, 18)
+                        .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 182, javax.swing.GroupLayout.PREFERRED_SIZE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 28, Short.MAX_VALUE)
                         .addComponent(rbnDept)))
-                .addContainerGap(javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
+                .addContainerGap())
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -132,24 +160,28 @@ public class CreateEvent extends javax.swing.JFrame {
                     .addComponent(txtEventName, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                    .addComponent(jdpDateSelector, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
-                    .addComponent(jLabel2))
+                    .addComponent(txtEventDescr, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                    .addComponent(jLabel6))
                 .addGap(18, 18, 18)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                    .addComponent(jLabel2)
+                    .addComponent(jdpDateSelector, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+                .addGap(17, 17, 17)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
                     .addComponent(jLabel3)
                     .addComponent(jspTimeSelector, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                 .addGap(18, 18, 18)
-                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel4)
                     .addComponent(cmbPriority, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
-                .addGap(18, 18, 18)
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 23, Short.MAX_VALUE)
                 .addGroup(layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addComponent(jLabel5)
                     .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 91, javax.swing.GroupLayout.PREFERRED_SIZE)
                     .addComponent(rbnDept))
-                .addGap(18, 18, 18)
+                .addGap(31, 31, 31)
                 .addComponent(btnCreateEvent)
-                .addContainerGap(27, Short.MAX_VALUE))
+                .addContainerGap())
         );
 
         pack();
@@ -158,6 +190,7 @@ public class CreateEvent extends javax.swing.JFrame {
     private void btnCreateEventActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCreateEventActionPerformed
         // TODO add your handling code here:
         String eventName = txtEventName.getText();
+        String eventDescr = txtEventDescr.getText();
         Date eventDate = jdpDateSelector.getDate();
         String time = jspTimeSelector.getValue().toString();
         User creator = GUI._currentUser;
@@ -190,46 +223,113 @@ public class CreateEvent extends javax.swing.JFrame {
         ndate += date.substring(date.lastIndexOf(" "));
         ndate = ndate.replaceAll(" ", "/");
         // create new event here
-        newEvent = new Event(eventName, ndate, time, creator);
+        newEvent = new Event(eventName, eventDescr, ndate, time, creator);
         if (GUI._upcomingEventsModel.getRowCount() < 6) {
             GUI._upcomingEventsModel.setValueAt(newEvent.getEventName() + " at " + newEvent.getEventTime(), GUI._upcomingEventsModel.getRowCount(), 0);
         }
-        getSelectedUsers();
-        ArrayList<Event> userEvents = GUI._userInfo.get(creator);
+        ArrayList<Event> userEvents = GUI._userInfo.get(creator) == null ? new ArrayList<>() : GUI._userInfo.get(creator); // should not be equal null.. check!!
         userEvents.add(newEvent);
         GUI._userInfo.put(creator, userEvents);
-        GUI._allEvents.add(newEvent);
+        try {
+            //GUI._allEvents.add(newEvent);
+            dbModel.createEvent(eventName, eventDescr, ndate, time, "low", false, creator.getUsername());
+        } catch (SQLException | ClassNotFoundException ex) {
+            Logger.getLogger(CreateEvent.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        getSelectedUsers();
         Serialize.saveUserFiles(Serialize._fileLocation);
-        Serialize.saveServerFile(Serialize._serverFile);
+        //Serialize.saveServerFile(Serialize._serverFile);
         String currentDate = GUI._df.format(GUI._currentDate);
         GUI.updateUpcoming(currentDate);
         GUI.refreshCalendar(GUI._realMonth, GUI._realYear);
         this.setVisible(false);
     }//GEN-LAST:event_btnCreateEventActionPerformed
 
+    public boolean deptState() {
+        return rbnDept.isSelected();
+    }
+    private void rbnDeptActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_rbnDeptActionPerformed
+        // TODO add your handling code here:
+        showUsers();
+    }//GEN-LAST:event_rbnDeptActionPerformed
+
+    private void txtEventDescrActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtEventDescrActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtEventDescrActionPerformed
+
+    private void txtEventNameActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_txtEventNameActionPerformed
+        // TODO add your handling code here:
+    }//GEN-LAST:event_txtEventNameActionPerformed
+
     private void getSelectedUsers() {
-        int[] selectedRows = tblUserTable.getSelectedRows();
-        for (int i = 0; i < selectedRows.length; i++) {
-            Object user = tblUserTable.getValueAt(selectedRows[i], 0);
-            newEvent.addAttendee(String.valueOf(user));
+        try {
+            int[] selectedRows = tblUserTable.getSelectedRows();
+            for (int i = 0; i < selectedRows.length; i++) {
+                Object user = tblUserTable.getValueAt(selectedRows[i], 0);
+                String objectSelected = String.valueOf(user);
+                if (Arrays.asList(GUI._dept).contains(objectSelected)) {
+                    ArrayList<User> departments = GUI._allDepts.get(objectSelected);
+                    if (departments != null) {
+                        for (int j = 0; j < departments.size(); j++) {
+                            newEvent.addAttendee(departments.get(i).getUsername());
+                            try {
+                                int userId = dbModel.findId(departments.get(i).getUsername(), "User");
+                                int eventId = dbModel.findId(newEvent.getEventName(), "Event");
+                                dbModel.insertUserEvent(userId, eventId);
+                            } catch (ClassNotFoundException | SQLException ex) {
+                                Logger.getLogger(CreateEvent.class.getName()).log(Level.SEVERE, null, ex);
+                            }
+                        }
+                    }
+                } else {
+                    try {
+                        String username = String.valueOf(user);
+                        newEvent.addAttendee(username);
+                        int userId = dbModel.findId(username, "User");
+                        int eventId = dbModel.findId(newEvent.getEventName(), "Event");
+                        dbModel.insertUserEvent(userId, eventId);
+                    } catch (ClassNotFoundException | SQLException ex) {
+                        Logger.getLogger(CreateEvent.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+            int userId = dbModel.findId(GUI._currentUser.getUsername(), "User");
+            int eventId = dbModel.findId(newEvent.getEventName(), "Event");
+            dbModel.insertUserEvent(userId, eventId);
+        } catch (ClassNotFoundException | SQLException ex) {
+            Logger.getLogger(CreateEvent.class.getName()).log(Level.SEVERE, null, ex);
+        }
+    }
+
+    public static void showDepts() {
+        for (String s : GUI._dept) {
+            _userModel.setValueAt(s, _rowCounter, 0);
+            _rowCounter++;
         }
     }
 
     private void showUsers() {
-        int i = 0;
-        for (Iterator<User> u = GUI._userInfo.keySet().iterator(); u.hasNext();) {
-            User user = u.next();
-            if (GUI._currentUser.getUsername() == null ? user.getUsername() != null : !GUI._currentUser.getUsername().equals(user.getUsername())) {
-                _userModel.setValueAt(user.getUsername(), i, 0);
-                i++;
-            }
-        }
+        _rowCounter = 0;
         if (rbnDept.isSelected()) {
-            for (int j = 0; i < GUI._dept.length; j++) {
-                _userModel.setValueAt(GUI._dept[j], j + i, 0);
+            showDepts();
+        } else {
+            //reset
+            for (int i = 0; i < 50; i++) {
+                _userModel.setValueAt(null, i, 0);
             }
         }
-        _userModel.fireTableDataChanged();
+        try {
+            //for (Iterator<User> u = GUI._userInfo.keySet().iterator(); u.hasNext();) {
+            //User user = u.next();
+            //if (!GUI._currentUser.getUsername().equals(user.getUsername())) {
+            // _userModel.setValueAt(user.getUsername(), _rowCounter, 0);
+            //_rowCounter++;
+            //}
+            //}
+            dbModel.showUsers(GUI._currentUser.getUsername());
+        } catch (ClassNotFoundException | SQLException ex) {
+            Logger.getLogger(CreateEvent.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     /**
@@ -269,11 +369,13 @@ public class CreateEvent extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel3;
     private javax.swing.JLabel jLabel4;
     private javax.swing.JLabel jLabel5;
+    private javax.swing.JLabel jLabel6;
     private javax.swing.JScrollPane jScrollPane1;
     private org.jdesktop.swingx.JXDatePicker jdpDateSelector;
     private static javax.swing.JSpinner jspTimeSelector;
-    private javax.swing.JRadioButton rbnDept;
+    public static javax.swing.JRadioButton rbnDept;
     private static javax.swing.JTable tblUserTable;
+    private javax.swing.JTextField txtEventDescr;
     private javax.swing.JTextField txtEventName;
     // End of variables declaration//GEN-END:variables
 }

@@ -1,4 +1,4 @@
-/*
+/**
  * To change this license header, choose License Headers in Project Properties.
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
@@ -7,6 +7,8 @@ package scheduler;
 
 import java.awt.Color;
 import java.awt.Component;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.print.PrinterException;
@@ -14,13 +16,17 @@ import java.io.File;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
+import java.sql.SQLException;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JColorChooser;
@@ -38,6 +44,10 @@ import javax.swing.table.DefaultTableModel;
  */
 public class GUI extends javax.swing.JFrame {
 
+    /* Variables for the dateGUI
+     * These only affect the appearance of the "hidden" table that is 
+     *   displayed when you click on a specific date
+     */
     private java.awt.Color BACKGROUND_COLOR = new java.awt.Color(204, 255, 204);
     private java.awt.Color FOREGROUND_COLOR = new java.awt.Color(51, 51, 51);
     private java.awt.Color BTN_BACKGROUND_COLOR = new java.awt.Color(102, 204, 255);
@@ -47,23 +57,32 @@ public class GUI extends javax.swing.JFrame {
     /**
      * Creates new form GUI
      */
+    // initializatin should happen in the constructor... this should be moved.
     static final String[] _days = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
         "Friday", "Saturday"};
     static final String[] _dept = {"Staff", "IT", "Services", "Marketing", "Human Resources", "Financial", "Purchasing", "Sales", "Inventory", "Licenses", "Operational", "Admin"};
     static final String[] _upEvents = {"Upcoming Events"};
+    static final String[] _invitesModel = {"Event Invitations"};
     static int _realYear, _realMonth, _realDay, _currentYear, _currentMonth;
+    static int modelrowCount = 0;
     GregorianCalendar _calendar;
     static DefaultTableModel _CalendarTableModel = new DefaultTableModel(_days, 6);
     static DefaultTableModel _upcomingEventsModel = new DefaultTableModel(_upEvents, 6);
+    static DefaultTableModel _invitationEventModel = new DefaultTableModel(_invitesModel, 100);
     final int _CALENDAR_HEIGHT = 100;
     static ArrayList<Event> _allEvents = new ArrayList<>();
     static HashMap<User, ArrayList> _userInfo = new HashMap<>();
+    static HashMap<String, ArrayList> _allDepts = new HashMap<>();
     static String _eventday;
-    static User _currentUser;
+    static User _currentUser = null;
     static DateFormat _df = new SimpleDateFormat("M/dd/yyyy");
     static Date _currentDate = new Date();
-    static boolean _logged = false;
     private final ActionListener updateCalendar;
+    private final ActionListener showEventsUp;
+    static boolean dateClicked = false;
+    boolean showOneEvent = false;
+    static int _eventCount = 0;
+    static ArrayList<Event> _upcomingEvents = new ArrayList<>();
 
     static int counter = 0;
 
@@ -77,11 +96,21 @@ public class GUI extends javax.swing.JFrame {
         initComponents();
         set();
         updateCalendar = (ActionEvent e) -> {
-            if(_logged) // this should be removed too
-            updateCalendar();
+            if (_currentUser != null) { // this should be removed too
+                updateCalendar();
+            }
         };
         Timer checkUpdt = new Timer(5000, updateCalendar);
         checkUpdt.start();
+        showEventsUp = (ActionEvent e) -> {
+            if (_currentUser != null) {
+                if (showEvent()) {
+                    EventNotification.run();
+                }
+            }
+        };
+        Timer checkEvUp = new Timer(300000, showEventsUp);
+        checkEvUp.start();
     }
 
     /**
@@ -114,6 +143,7 @@ public class GUI extends javax.swing.JFrame {
         btnPrev = new javax.swing.JButton();
         lblMonth = new javax.swing.JLabel();
         lblUserName = new javax.swing.JLabel();
+        btnListEvents = new javax.swing.JButton();
         jPanel2 = new javax.swing.JPanel();
         jScrollPane3 = new javax.swing.JScrollPane();
         tblUpcomingEvents = new javax.swing.JTable(){
@@ -121,6 +151,8 @@ public class GUI extends javax.swing.JFrame {
                 return false;
             };
         };
+        jScrollPane2 = new javax.swing.JScrollPane();
+        jTable1 = new javax.swing.JTable();
         jMenuBar1 = new javax.swing.JMenuBar();
         jMenu1 = new javax.swing.JMenu();
         jMenuItem2 = new javax.swing.JMenuItem();
@@ -141,8 +173,6 @@ public class GUI extends javax.swing.JFrame {
 
         setDefaultCloseOperation(javax.swing.WindowConstants.EXIT_ON_CLOSE);
         setResizable(false);
-
-        jPanel1.setLayout(new org.netbeans.lib.awtextra.AbsoluteLayout());
 
         pnlBackground.setBackground(new java.awt.Color(204, 255, 204));
         pnlBackground.setForeground(new java.awt.Color(51, 51, 51));
@@ -209,6 +239,16 @@ public class GUI extends javax.swing.JFrame {
 
         lblUserName.setText("jLabel1");
 
+        btnListEvents.setBackground(new java.awt.Color(102, 204, 255));
+        btnListEvents.setFont(new java.awt.Font("Tahoma", 1, 11)); // NOI18N
+        btnListEvents.setForeground(new java.awt.Color(255, 255, 255));
+        btnListEvents.setText("List Events");
+        btnListEvents.addActionListener(new java.awt.event.ActionListener() {
+            public void actionPerformed(java.awt.event.ActionEvent evt) {
+                btnListEventsActionPerformed(evt);
+            }
+        });
+
         javax.swing.GroupLayout pnlBackgroundLayout = new javax.swing.GroupLayout(pnlBackground);
         pnlBackground.setLayout(pnlBackgroundLayout);
         pnlBackgroundLayout.setHorizontalGroup(
@@ -216,72 +256,90 @@ public class GUI extends javax.swing.JFrame {
             .addGroup(pnlBackgroundLayout.createSequentialGroup()
                 .addContainerGap()
                 .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                    .addComponent(jScrollPane1)
-                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlBackgroundLayout.createSequentialGroup()
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(cmbYear, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
                     .addGroup(pnlBackgroundLayout.createSequentialGroup()
                         .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-                            .addComponent(btnPrev)
-                            .addComponent(btnUCreateEvent))
-                        .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                             .addGroup(pnlBackgroundLayout.createSequentialGroup()
+                                .addComponent(btnPrev)
                                 .addGap(361, 361, 361)
-                                .addComponent(lblMonth, javax.swing.GroupLayout.DEFAULT_SIZE, 82, Short.MAX_VALUE)
-                                .addGap(403, 403, 403)
-                                .addComponent(btnNext))
+                                .addComponent(lblMonth, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
+                                .addGap(353, 353, 353))
                             .addGroup(pnlBackgroundLayout.createSequentialGroup()
-                                .addGap(353, 353, 353)
-                                .addComponent(lblUserName, javax.swing.GroupLayout.DEFAULT_SIZE, 82, Short.MAX_VALUE)
-                                .addGap(389, 389, 389)
-                                .addComponent(btnLogout)))))
+                                .addComponent(btnUCreateEvent)
+                                .addGap(27, 27, 27)
+                                .addComponent(btnListEvents)
+                                .addGap(464, 464, 464)
+                                .addComponent(lblUserName, javax.swing.GroupLayout.PREFERRED_SIZE, 121, javax.swing.GroupLayout.PREFERRED_SIZE)
+                                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)))
+                        .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+                            .addComponent(btnNext)
+                            .addComponent(btnLogout)))
+                    .addGroup(pnlBackgroundLayout.createSequentialGroup()
+                        .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
+                            .addComponent(cmbYear, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+                            .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 942, javax.swing.GroupLayout.PREFERRED_SIZE))
+                        .addGap(0, 0, Short.MAX_VALUE)))
                 .addContainerGap())
         );
         pnlBackgroundLayout.setVerticalGroup(
             pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlBackgroundLayout.createSequentialGroup()
                 .addContainerGap()
-                .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.TRAILING)
-                    .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING, false)
-                        .addComponent(btnLogout, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE)
-                        .addComponent(btnUCreateEvent, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE))
-                    .addComponent(lblUserName))
-                .addGap(18, 18, 18)
                 .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
                     .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
-                        .addComponent(btnPrev)
-                        .addComponent(lblMonth))
-                    .addComponent(btnNext))
+                        .addComponent(btnUCreateEvent)
+                        .addComponent(btnListEvents))
+                    .addGroup(javax.swing.GroupLayout.Alignment.TRAILING, pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                        .addComponent(btnLogout)
+                        .addComponent(lblUserName)))
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.UNRELATED)
-                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 481, Short.MAX_VALUE)
+                .addGroup(pnlBackgroundLayout.createParallelGroup(javax.swing.GroupLayout.Alignment.BASELINE)
+                    .addComponent(btnPrev)
+                    .addComponent(lblMonth)
+                    .addComponent(btnNext))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane1, javax.swing.GroupLayout.DEFAULT_SIZE, 493, Short.MAX_VALUE)
                 .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
                 .addComponent(cmbYear, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
                 .addGap(7, 7, 7))
         );
-
-        jPanel1.add(pnlBackground, new org.netbeans.lib.awtextra.AbsoluteConstraints(168, 0, 1020, 600));
 
         jPanel2.setBackground(new java.awt.Color(204, 255, 255));
 
         tblUpcomingEvents.setModel(_upcomingEventsModel);
         jScrollPane3.setViewportView(tblUpcomingEvents);
 
+        jTable1.setModel(_invitationEventModel);
+        jScrollPane2.setViewportView(jTable1);
+
         javax.swing.GroupLayout jPanel2Layout = new javax.swing.GroupLayout(jPanel2);
         jPanel2.setLayout(jPanel2Layout);
         jPanel2Layout.setHorizontalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addGroup(jPanel2Layout.createSequentialGroup()
-                .addComponent(jScrollPane3, javax.swing.GroupLayout.DEFAULT_SIZE, 160, Short.MAX_VALUE)
-                .addContainerGap())
+            .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 170, Short.MAX_VALUE)
+            .addComponent(jScrollPane3, javax.swing.GroupLayout.Alignment.TRAILING, javax.swing.GroupLayout.PREFERRED_SIZE, 0, Short.MAX_VALUE)
         );
         jPanel2Layout.setVerticalGroup(
             jPanel2Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
             .addGroup(jPanel2Layout.createSequentialGroup()
                 .addComponent(jScrollPane3, javax.swing.GroupLayout.PREFERRED_SIZE, 128, javax.swing.GroupLayout.PREFERRED_SIZE)
-                .addGap(0, 472, Short.MAX_VALUE))
+                .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(jScrollPane2, javax.swing.GroupLayout.DEFAULT_SIZE, 466, Short.MAX_VALUE))
         );
 
-        jPanel1.add(jPanel2, new org.netbeans.lib.awtextra.AbsoluteConstraints(0, 0, 170, 600));
+        javax.swing.GroupLayout jPanel1Layout = new javax.swing.GroupLayout(jPanel1);
+        jPanel1.setLayout(jPanel1Layout);
+        jPanel1Layout.setHorizontalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addGroup(jPanel1Layout.createSequentialGroup()
+                .addGap(168, 168, 168)
+                .addComponent(pnlBackground, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE))
+            .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        );
+        jPanel1Layout.setVerticalGroup(
+            jPanel1Layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
+            .addComponent(pnlBackground, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(jPanel2, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
+        );
 
         jMenu1.setText("File");
 
@@ -376,7 +434,7 @@ public class GUI extends javax.swing.JFrame {
         getContentPane().setLayout(layout);
         layout.setHorizontalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
-            .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, 1186, javax.swing.GroupLayout.PREFERRED_SIZE)
+            .addComponent(jPanel1, javax.swing.GroupLayout.PREFERRED_SIZE, javax.swing.GroupLayout.DEFAULT_SIZE, javax.swing.GroupLayout.PREFERRED_SIZE)
         );
         layout.setVerticalGroup(
             layout.createParallelGroup(javax.swing.GroupLayout.Alignment.LEADING)
@@ -412,6 +470,7 @@ public class GUI extends javax.swing.JFrame {
         tblCalendar.setRowSelectionAllowed(true);
         tblCalendar.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
 
+        reloadUpcoming();
         tblUpcomingEvents.getTableHeader().setResizingAllowed(false);
         tblUpcomingEvents.getTableHeader().setReorderingAllowed(false);
         tblUpcomingEvents.setColumnSelectionAllowed(true);
@@ -425,10 +484,10 @@ public class GUI extends javax.swing.JFrame {
 
         // check it a user is logged (logged is set to true from login). If logged is true, then there is at least one user logged on.
         // check if that user is an admin, if yes then show things admin can see but if not hide them.
-        if (_logged) {
+        if (_currentUser == null) {
             for (Iterator<User> u = _userInfo.keySet().iterator(); u.hasNext();) {
                 _currentUser = u.next();
-                if (_currentUser.getLogged() && _currentUser.getUsername().equals(Logon._Loginusername)) {
+                if (_currentUser.getUsername().equals(Logon._loginUsername)) {
                     lblUserName.setText("User " + _currentUser.getUsername());
                     if (_currentUser.isAdmin() == false) {
                         hideNonAdmin();
@@ -436,6 +495,9 @@ public class GUI extends javax.swing.JFrame {
                             pnlBackground.setBackground(_currentUser.getCustomColor());
                         }
                     }
+                    break;
+                } else {
+                    lblUserName.setText("Unknown User");
                 }
             }
         }
@@ -450,11 +512,17 @@ public class GUI extends javax.swing.JFrame {
             if (currentuserEvents != null) {
                 for (int i = 0; i < currentuserEvents.size(); i++) {
                     Event e = currentuserEvents.get(i);
-                    System.out.println("event date is " + e.getEventDate());
                 }
             }
         }
         refreshCalendar(_realMonth, _realYear);
+    }
+
+    private void reloadUpcoming() {
+        int rowCount = _upcomingEventsModel.getRowCount();
+        for (int i = 0; i < rowCount; i++) {
+            _upcomingEventsModel.setValueAt("", i, 0);
+        }
     }
 
     //Go through all events for current user, if date is today, update table to show them
@@ -488,14 +556,14 @@ public class GUI extends javax.swing.JFrame {
     // logout redirects user to login page
     private void btnLogoutActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnLogoutActionPerformed
         // TODO add your handling code here:
+        _currentUser.setLogged(false);
+        _currentUser = null;
         this.dispose();
         try {
             new Logon().setVisible(true);
         } catch (IOException ex) {
             Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
         }
-
-
     }//GEN-LAST:event_btnLogoutActionPerformed
 
     private void mnuRemoveUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuRemoveUserActionPerformed
@@ -579,8 +647,6 @@ public class GUI extends javax.swing.JFrame {
                         }
                     }
                 }
-            } else {
-                System.err.println("No User");
             }
             valueatI += "</html>";
             if (eventExist == true) {
@@ -592,36 +658,102 @@ public class GUI extends javax.swing.JFrame {
         counter++;
     }
 
-    // update Calendar so when new events are added, the calendar gets updated with those events
-    private void updateCalendar() {
+    private void getModelrowCount() {
+        for (; modelrowCount < _invitationEventModel.getRowCount(); modelrowCount++) {
+            Object value = _invitationEventModel.getValueAt(modelrowCount, 0);
+            if (value != null) {
+                modelrowCount++;
+            }
+        }
+    }
+
+    // this does not work now. similar to updateCalendar, purpose is to replace that since it forces 
+    // events to be added to calendar without any check whatsoever or user accepting.
+    private void showInvites() {
+        getModelrowCount();
         File _testLog = new File(Serialize._serverFile);
         try {
             Serialize.OpenServerFiles(_testLog);
             ArrayList<Event> _currUserEvents = _userInfo.get(_currentUser);
-            for (Iterator<Event> it = _allEvents.iterator(); it.hasNext();) {
-                Event event = it.next();
-                boolean eventExist = false; // assumption is that the event is not here already
-                if (event.getAttendees().contains(_currentUser.getUsername()) || event.getEventCreator().equals(_currentUser)) {
-                    for(Event e : _currUserEvents){
-                        if(e.getEventName().equals(event.getEventName())){
-                            eventExist = true;
+            if (_currUserEvents != null) {
+                for (Iterator<Event> it = _allEvents.iterator(); it.hasNext();) {
+                    Event event;
+                    event = it.next();
+                    boolean eventExist = false; // assumption is that the event is not here already
+                    if (event.getAttendees().contains(_currentUser.getUsername()) || event.getEventCreator().equals(_currentUser)) {
+                        for (Event e : _currUserEvents) {
+                            if (e.getEventName().equals(event.getEventName())) {
+                                eventExist = true;
+                            }
                         }
+                        if (eventExist == false) {
+                            _invitationEventModel.setValueAt(event.getEventName(), modelrowCount, 0);
+                            modelrowCount++;
+                        } // only add if this is false
                     }
-                    if(eventExist == false){
-                        _currUserEvents.add(event);
-                    } // only add if this is false
                 }
             }
-            _userInfo.put(_currentUser, _currUserEvents);
-            Serialize.saveUserFiles(Serialize._fileLocation);
         } catch (IOException ex) {
             Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
         }
-        refreshCalendar(_realMonth, _realYear);
+    }
+
+    // update Calendar so when new events are added, the calendar gets updated with those events
+    private void updateCalendar() {
+        if (_currentUser != null) {
+            try {
+                int userId = dbModel.findId(_currentUser.getUsername(), "User");
+                dbModel.updateUserEvents(userId);
+            } catch (ClassNotFoundException | SQLException ex) {
+                Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        }
+        if (showOneEvent == false) {
+            if (showEvent()) {
+                EventNotification.run();
+            }
+            showOneEvent = !showOneEvent;
+        }
+        refreshCalendar(_currentMonth, _currentYear);
         String currentDate = _df.format(_currentDate);
         updateUpcoming(currentDate);
-        
-        System.out.println("updating ...");
+    }
+
+    private boolean showEvent() {
+        int i = 0;
+        boolean eventExist = false;
+        for (Iterator<Event> it = _userInfo.get(_currentUser).iterator(); it.hasNext();) {
+            Event e = it.next();
+            String currDate = _df.format(_currentDate);
+            if (currDate.equals(e.getEventDate())) {
+                String time = LocalTime.now().toString();
+                time = time.substring(0, time.lastIndexOf("."));
+                int timeDue = calcTime(e.getEventTime()) - calcTime(time);
+                System.out.println("curr time " + time + " even time " + e.getEventTime() + " time diff " + timeDue);
+                String tD = timeDue > 1 ? String.valueOf(timeDue) + " minutes" : String.valueOf(timeDue) + " minute";
+                if (timeDue >= 0 && timeDue <= 15) {
+                    eventExist = true;
+                    EventNotification._upcomingEventsModel.setValueAt(e.getEventDescription(), i, 0);
+                    EventNotification._upcomingEventsModel.setValueAt(tD, i, 1);
+                    i++;
+                }
+            }
+        }
+        return eventExist;
+    }
+
+    private int calcTime(String time) {
+        int currTime = 0;
+        String cat = "";
+        for (int i = 0; i < time.length(); i++) {
+            if (time.charAt(i) != ':') {
+                cat += time.charAt(i);
+            } else {
+                currTime += Integer.parseInt(cat);
+                cat = "";
+            }
+        }
+        return currTime;
     }
 
     static class tblCalendarRenderer extends DefaultTableCellRenderer {
@@ -657,8 +789,8 @@ public class GUI extends javax.swing.JFrame {
             MatteBorder border = new MatteBorder(1, 1, 0, 0, color);
             setBorder(border);
             setForeground(Color.black);
-            //setSize(table.getColumnModel().getColumn(column).getWidth(),
-            //Short.MAX_VALUE);
+            setSize(table.getColumnModel().getColumn(column).getWidth(),
+                    Short.MAX_VALUE);
             return this;
         }
     }
@@ -694,8 +826,22 @@ public class GUI extends javax.swing.JFrame {
     }//GEN-LAST:event_cmbYearMouseClicked
 
     private void tblCalendarMouseClicked(java.awt.event.MouseEvent evt) {//GEN-FIRST:event_tblCalendarMouseClicked
-        buildDateGUI();
-        jScrollPane1.setViewportView(dateGUI);
+        //respond only to double click
+        if (dateClicked) {
+            dateClicked = false;
+            buildDateGUI();
+            jScrollPane1.setViewportView(dateGUI);
+        } else {
+            dateClicked = true;
+            java.util.Timer t = new java.util.Timer();
+            t.schedule(new java.util.TimerTask() {
+
+                @Override
+                public void run() {
+                    dateClicked = false;
+                }
+            }, 700);
+        }
     }
 
 //GEN-LAST:event_tblCalendarMouseClicked
@@ -704,30 +850,171 @@ public class GUI extends javax.swing.JFrame {
      * consists of an upper and lower Jpanel inside the dateGUI JPanel
      */
     private void buildDateGUI() {
-        dateGUI = new javax.swing.JPanel();
-        javax.swing.JPanel upperPanel = new javax.swing.JPanel();
-        javax.swing.JPanel lowerPanel = new javax.swing.JPanel();
-        java.awt.GridLayout layout = new java.awt.GridLayout(0, 2);
-        lowerPanel.setLayout(layout);
+        GregorianCalendar testCalendar = new GregorianCalendar(_currentYear, _currentMonth, 1);
+        int offset = testCalendar.get(GregorianCalendar.DAY_OF_WEEK) - 1;
+
+        int row = tblCalendar.getSelectedRow();
+        int col = tblCalendar.getSelectedColumn();
+        int daySelected = row * 7 + col + 1 - offset;
+        String dayS = daySelected < 10 ? "0" + String.valueOf(daySelected) : String.valueOf(daySelected);
+        String dateSelected = (_currentMonth + 1) + "/" + dayS + "/" + _currentYear;
+
+        //add some layout components
+        dateGUI = new javax.swing.JPanel(new GridBagLayout());
+        java.awt.Dimension d = new java.awt.Dimension(jScrollPane1.getPreferredSize());
+        GridBagConstraints c = new GridBagConstraints();
+        javax.swing.JPanel upperPanel = new javax.swing.JPanel(new GridBagLayout());
+        javax.swing.JPanel lowerPanel = new javax.swing.JPanel(new GridBagLayout());
+        javax.swing.JScrollPane scroll = new javax.swing.JScrollPane(lowerPanel);
+        int always = javax.swing.JScrollPane.VERTICAL_SCROLLBAR_ALWAYS;
+        int never = javax.swing.JScrollPane.VERTICAL_SCROLLBAR_NEVER;
+        //jScrollPane1.setVerticalScrollBarPolicy(never);
+        //scroll.setVerticalScrollBarPolicy(always);
+        scroll.setPreferredSize(new java.awt.Dimension(d.width, d.height));
+        lowerPanel.setPreferredSize(new java.awt.Dimension(980, 1100));
 
         javax.swing.JButton btnBack = new javax.swing.JButton("Back");
         javax.swing.JButton btnCreateEvent = new javax.swing.JButton("Create Event");
 
-        dateGUI.setBackground(BACKGROUND_COLOR);
-        dateGUI.setForeground(FOREGROUND_COLOR);
-        btnBack.setBackground(BTN_BACKGROUND_COLOR);
-        btnBack.setForeground(BTN_FOREGROUND_COLOR);
-        btnBack.setFont(BTN_FONT);
+        //coloring
+        dateGUI.setBackground(tblCalendar.getBackground());
+        dateGUI.setForeground(tblCalendar.getForeground());
+        upperPanel.setBackground(tblCalendar.getBackground());
+        upperPanel.setForeground(tblCalendar.getForeground());
+        lowerPanel.setBackground(tblCalendar.getBackground());
+        lowerPanel.setForeground(tblCalendar.getForeground());
+        btnBack.setBackground(btnUCreateEvent.getBackground());
+        btnBack.setForeground(btnUCreateEvent.getForeground());
+        btnBack.setFont(btnUCreateEvent.getFont());
         btnCreateEvent.setBackground(btnUCreateEvent.getBackground());
         btnCreateEvent.setFont(btnUCreateEvent.getFont());
         btnCreateEvent.setForeground(btnUCreateEvent.getForeground());
 
-        upperPanel.add(btnBack);
-        upperPanel.add(btnCreateEvent);
-        lowerPanel.add(new javax.swing.JLabel("Time"));
-        lowerPanel.add(new javax.swing.JLabel("Events"));
-        dateGUI.add(upperPanel);
-        dateGUI.add(lowerPanel);
+        //layout
+        //BACK
+        c.insets = new java.awt.Insets(2, 2, 4, 4);
+        c.fill = GridBagConstraints.HORIZONTAL;
+        c.anchor = GridBagConstraints.WEST;
+        c.gridx = 0;
+        c.gridy = 0;
+        upperPanel.add(btnBack, c);
+
+        //seperator
+        c.gridx = 1;
+        c.fill = GridBagConstraints.BOTH;
+        upperPanel.add(new javax.swing.JSeparator(
+                javax.swing.SwingConstants.VERTICAL), c);
+
+        //CREATE EVENT
+        c.gridx = 2;
+        c.gridy = 0;
+        c.fill = GridBagConstraints.NONE;
+        upperPanel.add(btnCreateEvent, c);
+
+        //TIME
+        c.gridx = 0;
+        c.gridy = 1;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.WEST;
+        lowerPanel.add(new javax.swing.JLabel("Time"), c);
+
+        //seperator
+        c.gridx = 1;
+        c.fill = GridBagConstraints.BOTH;
+        c.anchor = GridBagConstraints.CENTER;
+        lowerPanel.add(new javax.swing.JSeparator(
+                javax.swing.SwingConstants.VERTICAL), c);
+
+        //EVENTS
+        c.gridx = 2;
+        c.gridwidth = 3;
+        c.fill = GridBagConstraints.NONE;
+        c.anchor = GridBagConstraints.CENTER;
+        c.weightx = 1;
+        lowerPanel.add(new javax.swing.JLabel("Events"), c);
+
+        //fill in times and event descriptions
+        c.anchor = GridBagConstraints.WEST;
+        for (int i = 1; i <= 24; i++) {
+            //time on the hour (1, 2, 3, etc)
+            c.fill = GridBagConstraints.NONE;
+            c.gridx = 0;
+            c.gridy = i * 2;
+            c.gridwidth = 1;
+            c.weightx = 0;
+            lowerPanel.add(new javax.swing.JLabel(Integer.toString(i - 1)), c);
+
+            c.gridx = 1;
+            c.fill = GridBagConstraints.BOTH;
+            lowerPanel.add(new javax.swing.JSeparator(
+                    javax.swing.SwingConstants.VERTICAL), c);
+
+            //event
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.gridx = 2;
+            c.gridwidth = 3;
+            c.weightx = 1;
+
+            //time every 1/2 hour (1:30, 2:30, etc)
+            c.fill = GridBagConstraints.NONE;
+            c.gridx = 0;
+            c.gridy++;
+            c.weightx = 0;
+            lowerPanel.add(new javax.swing.JLabel(Integer.toString(i - 1) + ":30"), c);
+
+            //event
+            c.fill = GridBagConstraints.HORIZONTAL;
+            c.gridx = 1;
+            c.fill = GridBagConstraints.BOTH;
+            lowerPanel.add(new javax.swing.JSeparator(
+                    javax.swing.SwingConstants.VERTICAL), c);
+        }
+
+        c.anchor = GridBagConstraints.CENTER;
+        c.fill = GridBagConstraints.NONE;
+        c.gridwidth = 3;
+        c.weightx = 1;
+        //add event descriptions and delete buttons
+        ArrayList<Event> currentUserEvents = _userInfo.get(_currentUser);
+        for (Iterator<Event> it = currentUserEvents.iterator(); it.hasNext();) {
+            Event e = it.next();
+            if (e.getEventDate().equals(dateSelected)) {
+                javax.swing.JButton btnDeleteEvent = new javax.swing.JButton("Delete");
+                btnDeleteEvent.setBackground(btnUCreateEvent.getBackground());
+                btnDeleteEvent.setForeground(btnUCreateEvent.getForeground());
+                btnDeleteEvent.setFont(btnUCreateEvent.getFont());
+                btnDeleteEvent.addActionListener((java.awt.event.ActionEvent evt) -> {
+                    try {
+                        //delete event code here.. using name and time so it has to be exact event.. have to remove from all other users too
+                        dbModel.deleteEvent(e.getEventName(), e.getEventTime());
+                        deleteEvent(e.getEventName(), e.getEventTime());
+                    } catch (SQLException ex) {
+                        Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                });
+
+                String[] time = e.getEventTime().split(":");
+                int hour = Integer.parseInt(time[0]);
+                int min = Integer.parseInt(time[1]);
+
+                c.gridy = (hour + 1) * 2;
+                if (min >= 30) c.gridy++;
+                c.gridx = 4;
+                lowerPanel.add(new javax.swing.JLabel(e.getEventDescription()), c);
+                c.gridx = 5;
+                lowerPanel.add(btnDeleteEvent, c);
+            }
+        }
+
+        c.gridx = 0;
+        c.gridy = 0;
+        c.gridwidth = 1;
+        dateGUI.add(upperPanel, c);
+
+        c.gridx = 0;
+        c.gridy = 1;
+        c.fill = GridBagConstraints.BOTH;
+        dateGUI.add(scroll, c);
 
         btnBack.addActionListener((java.awt.event.ActionEvent e) -> {
             jScrollPane1.setViewportView(tblCalendar);
@@ -736,11 +1023,19 @@ public class GUI extends javax.swing.JFrame {
         btnCreateEvent.addActionListener(this::btnUCreateEventActionPerformed);
     }
 
+    private void deleteEvent(String eventName, String eventTime) {
+        for (Iterator<Event> it = _userInfo.get(_currentUser).iterator(); it.hasNext();) {
+            Event e = it.next();
+            if (e.getEventName().equals(eventName) && e.getEventTime().equals(eventTime)) {
+                it.remove();
+            }
+        }
+    }
     private void mnuEditPasswordActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuEditPasswordActionPerformed
         // TODO add your handling code here:
         String newPassword = JOptionPane.showInputDialog("Enter new password here");
         Encryption encrypt = new Encryption();
-        if (_logged == true && (!"".equals(newPassword) || newPassword != null)) {
+        if ((!"".equals(newPassword) || newPassword != null)) {
             try {
                 _currentUser.setPassword(encrypt.getEncryptedPassword(newPassword,
                         _currentUser.getSalt()));
@@ -773,6 +1068,14 @@ public class GUI extends javax.swing.JFrame {
         //this.setVisible(false);
         CreateEvent.run();
     }//GEN-LAST:event_btnUCreateEventActionPerformed
+
+    private void btnListEventsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnListEventsActionPerformed
+        // TODO add your handling code here:
+        // first set count dynamically.. sorta
+        _eventCount = _userInfo.get(_currentUser).size();
+       ListEvents.run();
+
+    }//GEN-LAST:event_btnListEventsActionPerformed
 
     private void print() {
         try {
@@ -815,6 +1118,7 @@ public class GUI extends javax.swing.JFrame {
     }
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
+    private javax.swing.JButton btnListEvents;
     private javax.swing.JButton btnLogout;
     private static javax.swing.JButton btnNext;
     private static javax.swing.JButton btnPrev;
@@ -828,7 +1132,9 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JPanel jPanel1;
     private javax.swing.JPanel jPanel2;
     private javax.swing.JScrollPane jScrollPane1;
+    private javax.swing.JScrollPane jScrollPane2;
     private javax.swing.JScrollPane jScrollPane3;
+    private static javax.swing.JTable jTable1;
     private static javax.swing.JLabel lblMonth;
     private static javax.swing.JLabel lblUserName;
     private javax.swing.JMenuItem mnuAddUser;

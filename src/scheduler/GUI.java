@@ -18,6 +18,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
 import java.sql.SQLException;
 import java.text.DateFormat;
+import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -26,7 +27,6 @@ import java.util.Date;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
-import java.util.TimerTask;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.JColorChooser;
@@ -74,15 +74,15 @@ public class GUI extends javax.swing.JFrame {
     static HashMap<User, ArrayList> _userInfo = new HashMap<>();
     static HashMap<String, ArrayList> _allDepts = new HashMap<>();
     static String _eventday;
-    static User _currentUser = null;
+    static User _currentUser;
     static DateFormat _df = new SimpleDateFormat("M/dd/yyyy");
     static Date _currentDate = new Date();
     private final ActionListener updateCalendar;
     private final ActionListener showEventsUp;
     static boolean dateClicked = false;
     boolean showOneEvent = false;
-    static int _eventCount = 0;
     static ArrayList<Event> _upcomingEvents = new ArrayList<>();
+    static HashMap<String, Double> _dueEvent = new HashMap<>();
 
     static int counter = 0;
 
@@ -93,6 +93,7 @@ public class GUI extends javax.swing.JFrame {
         _realYear = _calendar.get(GregorianCalendar.YEAR);
         _currentMonth = _realMonth;
         _currentYear = _realYear;
+        _currentUser = null;
         initComponents();
         set();
         updateCalendar = (ActionEvent e) -> {
@@ -109,7 +110,7 @@ public class GUI extends javax.swing.JFrame {
                 }
             }
         };
-        Timer checkEvUp = new Timer(300000, showEventsUp);
+        Timer checkEvUp = new Timer(10000, showEventsUp);
         checkEvUp.start();
     }
 
@@ -161,10 +162,8 @@ public class GUI extends javax.swing.JFrame {
         mnuUser = new javax.swing.JMenu();
         mnuAddUser = new javax.swing.JMenuItem();
         mnuListEditUser = new javax.swing.JMenuItem();
-        mnuRemoveUser = new javax.swing.JMenuItem();
         mnuEditPassword = new javax.swing.JMenuItem();
         mnuCustomizeCalendar = new javax.swing.JMenuItem();
-        mnuServerLocation = new javax.swing.JMenuItem();
 
         jMenuItem4.setText("jMenuItem4");
 
@@ -376,6 +375,7 @@ public class GUI extends javax.swing.JFrame {
             }
         });
 
+        mnuAddUser.setAccelerator(javax.swing.KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_A, java.awt.event.InputEvent.CTRL_MASK));
         mnuAddUser.setText("Add User");
         mnuAddUser.addActionListener(new java.awt.event.ActionListener() {
             public void actionPerformed(java.awt.event.ActionEvent evt) {
@@ -391,14 +391,6 @@ public class GUI extends javax.swing.JFrame {
             }
         });
         mnuUser.add(mnuListEditUser);
-
-        mnuRemoveUser.setText("Remove User");
-        mnuRemoveUser.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuRemoveUserActionPerformed(evt);
-            }
-        });
-        mnuUser.add(mnuRemoveUser);
 
         mnuEditPassword.setText("Edit Password");
         mnuEditPassword.addActionListener(new java.awt.event.ActionListener() {
@@ -417,14 +409,6 @@ public class GUI extends javax.swing.JFrame {
         mnuUser.add(mnuCustomizeCalendar);
 
         mnuMainEdit.add(mnuUser);
-
-        mnuServerLocation.setText("Server Location");
-        mnuServerLocation.addActionListener(new java.awt.event.ActionListener() {
-            public void actionPerformed(java.awt.event.ActionEvent evt) {
-                mnuServerLocationActionPerformed(evt);
-            }
-        });
-        mnuMainEdit.add(mnuServerLocation);
 
         jMenuBar1.add(mnuMainEdit);
 
@@ -456,9 +440,7 @@ public class GUI extends javax.swing.JFrame {
 
 
     private void mnuAddUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuAddUserActionPerformed
-        this.setVisible(false);
-        AddUsers.run();
-
+    AddUsers.run();
     }//GEN-LAST:event_mnuAddUserActionPerformed
 
     private void set() {
@@ -549,8 +531,6 @@ public class GUI extends javax.swing.JFrame {
     private void hideNonAdmin() {
         mnuAddUser.setVisible(false);
         mnuListEditUser.setVisible(false);
-        mnuRemoveUser.setVisible(false);
-        mnuServerLocation.setVisible(false);
     }
 
     // logout redirects user to login page
@@ -566,12 +546,6 @@ public class GUI extends javax.swing.JFrame {
         }
     }//GEN-LAST:event_btnLogoutActionPerformed
 
-    private void mnuRemoveUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuRemoveUserActionPerformed
-        // TODO add your handling code here:
-        this.setVisible(false);
-        RemoveUser.run();
-    }//GEN-LAST:event_mnuRemoveUserActionPerformed
-
     private void mnuListEditUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuListEditUserActionPerformed
         // TODO add your handling code here:
         this.setVisible(false);
@@ -581,10 +555,6 @@ public class GUI extends javax.swing.JFrame {
     private void mnuUserActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuUserActionPerformed
         // TODO add your handling code here:
     }//GEN-LAST:event_mnuUserActionPerformed
-
-    private void mnuServerLocationActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuServerLocationActionPerformed
-        // TODO add your handling code here:
-    }//GEN-LAST:event_mnuServerLocationActionPerformed
 
     // refreshes the calendar whenever the year is changed
     private void cmbYearActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cmbYearActionPerformed
@@ -707,35 +677,39 @@ public class GUI extends javax.swing.JFrame {
             } catch (ClassNotFoundException | SQLException ex) {
                 Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
             }
+            refreshCalendar(_currentMonth, _currentYear);
+            String currentDate = _df.format(_currentDate);
+            updateUpcoming(currentDate);
         }
-        if (showOneEvent == false) {
-            if (showEvent()) {
-                EventNotification.run();
-            }
-            showOneEvent = !showOneEvent;
-        }
-        refreshCalendar(_currentMonth, _currentYear);
-        String currentDate = _df.format(_currentDate);
-        updateUpcoming(currentDate);
     }
 
     private boolean showEvent() {
         int i = 0;
         boolean eventExist = false;
-        for (Iterator<Event> it = _userInfo.get(_currentUser).iterator(); it.hasNext();) {
+        for (Iterator<Event> it = _upcomingEvents.iterator(); it.hasNext();) {
             Event e = it.next();
             String currDate = _df.format(_currentDate);
             if (currDate.equals(e.getEventDate())) {
                 String time = LocalTime.now().toString();
                 time = time.substring(0, time.lastIndexOf("."));
                 int timeDue = calcTime(e.getEventTime()) - calcTime(time);
-                System.out.println("curr time " + time + " even time " + e.getEventTime() + " time diff " + timeDue);
+                //System.out.println("curr time " + time + " even time " + e.getEventTime() + " time diff " + timeDue);
                 String tD = timeDue > 1 ? String.valueOf(timeDue) + " minutes" : String.valueOf(timeDue) + " minute";
                 if (timeDue >= 0 && timeDue <= 15) {
-                    eventExist = true;
-                    EventNotification._upcomingEventsModel.setValueAt(e.getEventDescription(), i, 0);
-                    EventNotification._upcomingEventsModel.setValueAt(tD, i, 1);
-                    i++;
+                    if (!_dueEvent.containsKey(e.getEventName()) || _dueEvent.get(e.getEventName()) <= 0) {
+                        _dueEvent.put(e.getEventName(), 5.0); // show again in 5 minutes
+                        eventExist = true;
+                        EventNotification._upcomingEventsModel.setValueAt(e.getEventDescription(), i, 0);
+                        EventNotification._upcomingEventsModel.setValueAt(tD, i, 1);
+                        i++;
+                    } else// reduce time until it shows again
+                    {
+                        if (timeDue == 0) {
+                            _dueEvent.remove(e.getEventName());
+                        } else {
+                            _dueEvent.put(e.getEventName(), (_dueEvent.get(e.getEventName()) - 0.5));
+                        }
+                    }
                 }
             }
         }
@@ -857,7 +831,9 @@ public class GUI extends javax.swing.JFrame {
         int col = tblCalendar.getSelectedColumn();
         int daySelected = row * 7 + col + 1 - offset;
         String dayS = daySelected < 10 ? "0" + String.valueOf(daySelected) : String.valueOf(daySelected);
-        String dateSelected = (_currentMonth + 1) + "/" + dayS + "/" + _currentYear;
+        int cMonth = _currentMonth+1;
+        String currMonth = cMonth < 10 ? "0"+String.valueOf(cMonth) : String.valueOf(cMonth);
+        String dateSelected = currMonth + "/" + dayS + "/" + _currentYear;
 
         //add some layout components
         dateGUI = new javax.swing.JPanel(new GridBagLayout());
@@ -979,30 +955,17 @@ public class GUI extends javax.swing.JFrame {
         for (Iterator<Event> it = currentUserEvents.iterator(); it.hasNext();) {
             Event e = it.next();
             if (e.getEventDate().equals(dateSelected)) {
-                javax.swing.JButton btnDeleteEvent = new javax.swing.JButton("Delete");
-                btnDeleteEvent.setBackground(btnUCreateEvent.getBackground());
-                btnDeleteEvent.setForeground(btnUCreateEvent.getForeground());
-                btnDeleteEvent.setFont(btnUCreateEvent.getFont());
-                btnDeleteEvent.addActionListener((java.awt.event.ActionEvent evt) -> {
-                    try {
-                        //delete event code here.. using name and time so it has to be exact event.. have to remove from all other users too
-                        dbModel.deleteEvent(e.getEventName(), e.getEventTime());
-                        deleteEvent(e.getEventName(), e.getEventTime());
-                    } catch (SQLException ex) {
-                        Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                });
-
                 String[] time = e.getEventTime().split(":");
                 int hour = Integer.parseInt(time[0]);
                 int min = Integer.parseInt(time[1]);
 
                 c.gridy = (hour + 1) * 2;
-                if (min >= 30) c.gridy++;
+                if (min >= 30) {
+                    c.gridy++;
+                }
                 c.gridx = 4;
                 lowerPanel.add(new javax.swing.JLabel(e.getEventDescription()), c);
                 c.gridx = 5;
-                lowerPanel.add(btnDeleteEvent, c);
             }
         }
 
@@ -1020,17 +983,18 @@ public class GUI extends javax.swing.JFrame {
             jScrollPane1.setViewportView(tblCalendar);
         });
 
-        btnCreateEvent.addActionListener(this::btnUCreateEventActionPerformed);
+        btnCreateEvent.addActionListener((java.awt.event.ActionEvent e) -> {
+            try {
+                DateFormat df = new SimpleDateFormat("MM/dd/yyyy");
+                Date date = (Date) df.parse(dateSelected);
+                CreateEvent.run();
+                //CreateEvent.jdpDateSelector.setDate(date); think about this later.
+            } catch (ParseException ex) {
+                Logger.getLogger(GUI.class.getName()).log(Level.SEVERE, null, ex);
+            }
+        });
     }
 
-    private void deleteEvent(String eventName, String eventTime) {
-        for (Iterator<Event> it = _userInfo.get(_currentUser).iterator(); it.hasNext();) {
-            Event e = it.next();
-            if (e.getEventName().equals(eventName) && e.getEventTime().equals(eventTime)) {
-                it.remove();
-            }
-        }
-    }
     private void mnuEditPasswordActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_mnuEditPasswordActionPerformed
         // TODO add your handling code here:
         String newPassword = JOptionPane.showInputDialog("Enter new password here");
@@ -1072,8 +1036,7 @@ public class GUI extends javax.swing.JFrame {
     private void btnListEventsActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnListEventsActionPerformed
         // TODO add your handling code here:
         // first set count dynamically.. sorta
-        _eventCount = _userInfo.get(_currentUser).size();
-       ListEvents.run();
+        ListEvents.run();
 
     }//GEN-LAST:event_btnListEventsActionPerformed
 
@@ -1143,8 +1106,6 @@ public class GUI extends javax.swing.JFrame {
     private javax.swing.JMenuItem mnuExit;
     private javax.swing.JMenuItem mnuListEditUser;
     private javax.swing.JMenu mnuMainEdit;
-    private javax.swing.JMenuItem mnuRemoveUser;
-    private javax.swing.JMenuItem mnuServerLocation;
     private javax.swing.JMenu mnuUser;
     private javax.swing.JPanel pnlBackground;
     private static javax.swing.JTable tblCalendar;

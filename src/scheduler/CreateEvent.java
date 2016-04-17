@@ -15,6 +15,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.swing.JOptionPane;
 import javax.swing.JSpinner;
 import javax.swing.SpinnerDateModel;
 import javax.swing.table.DefaultTableModel;
@@ -30,6 +31,7 @@ public class CreateEvent extends javax.swing.JFrame {
     static DefaultTableModel _userModel = new DefaultTableModel(users, 100);
     Event newEvent;
     static int _rowCounter = 0;
+    
 
     /**
      * Creates new form CreateEvent
@@ -37,6 +39,7 @@ public class CreateEvent extends javax.swing.JFrame {
     public CreateEvent() {
         initComponents();
         showUsers();
+        
     }
 
     /**
@@ -190,7 +193,10 @@ public class CreateEvent extends javax.swing.JFrame {
     private void btnCreateEventActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCreateEventActionPerformed
         // TODO add your handling code here:
         String eventName = txtEventName.getText();
-        String eventDescr = txtEventDescr.getText();
+        if("".equals(eventName)){
+            JOptionPane.showMessageDialog(null, "Please add an event name", "NAME ERROR", JOptionPane.ERROR_MESSAGE);
+        }else{
+            String eventDescr = txtEventDescr.getText();
         Date eventDate = jdpDateSelector.getDate();
         String time = jspTimeSelector.getValue().toString();
         User creator = GUI._currentUser;
@@ -238,11 +244,12 @@ public class CreateEvent extends javax.swing.JFrame {
         }
         getSelectedUsers();
         Serialize.saveUserFiles(Serialize._fileLocation);
-        //Serialize.saveServerFile(Serialize._serverFile);
         String currentDate = GUI._df.format(GUI._currentDate);
         GUI.updateUpcoming(currentDate);
         GUI.refreshCalendar(GUI._realMonth, GUI._realYear);
         this.setVisible(false);
+        }
+        
     }//GEN-LAST:event_btnCreateEventActionPerformed
 
     public boolean deptState() {
@@ -270,10 +277,11 @@ public class CreateEvent extends javax.swing.JFrame {
                 if (Arrays.asList(GUI._dept).contains(objectSelected)) {
                     ArrayList<User> departments = GUI._allDepts.get(objectSelected);
                     if (departments != null) {
-                        for (int j = 0; j < departments.size(); j++) {
+                        for (Iterator<User> it = departments.iterator(); it.hasNext();) {
+                            User deptUser = it.next();
                             newEvent.addAttendee(departments.get(i).getUsername());
                             try {
-                                int userId = dbModel.findId(departments.get(i).getUsername(), "User");
+                                int userId = dbModel.findId(deptUser.getUsername(), "User");
                                 int eventId = dbModel.findId(newEvent.getEventName(), "Event");
                                 dbModel.insertUserEvent(userId, eventId);
                             } catch (ClassNotFoundException | SQLException ex) {
@@ -319,13 +327,6 @@ public class CreateEvent extends javax.swing.JFrame {
             }
         }
         try {
-            //for (Iterator<User> u = GUI._userInfo.keySet().iterator(); u.hasNext();) {
-            //User user = u.next();
-            //if (!GUI._currentUser.getUsername().equals(user.getUsername())) {
-            // _userModel.setValueAt(user.getUsername(), _rowCounter, 0);
-            //_rowCounter++;
-            //}
-            //}
             dbModel.showUsers(GUI._currentUser.getUsername());
         } catch (ClassNotFoundException | SQLException ex) {
             Logger.getLogger(CreateEvent.class.getName()).log(Level.SEVERE, null, ex);
@@ -371,7 +372,7 @@ public class CreateEvent extends javax.swing.JFrame {
     private javax.swing.JLabel jLabel5;
     private javax.swing.JLabel jLabel6;
     private javax.swing.JScrollPane jScrollPane1;
-    private org.jdesktop.swingx.JXDatePicker jdpDateSelector;
+    public static org.jdesktop.swingx.JXDatePicker jdpDateSelector;
     private static javax.swing.JSpinner jspTimeSelector;
     public static javax.swing.JRadioButton rbnDept;
     private static javax.swing.JTable tblUserTable;

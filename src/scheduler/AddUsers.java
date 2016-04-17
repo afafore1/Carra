@@ -201,52 +201,57 @@ public class AddUsers extends javax.swing.JFrame {
         byte[] encryptedPassword = null;
         byte[] salt = null;
 
-        for(Iterator<User> u = GUI._userInfo.keySet().iterator(); u.hasNext();){
-            User user = u.next();
-            if(user.getUsername().equals(username)){
-                JOptionPane.showMessageDialog(null, "This Username ("+username+") has been taken", "Username Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
         if (!password.equals(confPassword)) {
             JOptionPane.showMessageDialog(null, "Password did not match", "Password Mismatch", JOptionPane.ERROR_MESSAGE);
         } else if (isvalidated == false) {
             JOptionPane.showMessageDialog(null, "Invalid Email", "Email Address has invalid format", JOptionPane.ERROR_MESSAGE);
         } else {
-            Encryption encrypt = new Encryption();
             try {
-                salt = encrypt.generateSalt();
-                encryptedPassword = encrypt.getEncryptedPassword(password, salt);
-            } catch (java.security.NoSuchAlgorithmException | java.security.spec.InvalidKeySpecException e) {
-                //TODO add error message here
-            }
-            if (_userDepartment != null) {
-                newUser = new User(username, encryptedPassword, salt, email);
-                ArrayList<User> departmentUsers = GUI._allDepts.get(_userDepartment);
-                if(departmentUsers == null) departmentUsers = new ArrayList<>();
-                departmentUsers.add(newUser);
-                GUI._allDepts.put(_userDepartment, departmentUsers);
-                if (chkAdmin.isSelected()) {
-                    newUser.makeAdmin(true);
-                }
-                GUI._userInfo.put(newUser, new ArrayList<>()); //newUser.isAdmin());
-                Serialize.saveUserFiles(Serialize._fileLocation);
+                Encryption encrypt = new Encryption();
                 try {
-                    dbModel.insertUser(username, password, email, _userDepartment, newUser.isAdmin());
-                    dbModel.addUserDept(username, _userDepartment);
-                } catch (SQLException | ClassNotFoundException ex) {
-                    Logger.getLogger(AddUsers.class.getName()).log(Level.SEVERE, null, ex);
+                    salt = encrypt.generateSalt();
+                    encryptedPassword = encrypt.getEncryptedPassword(password, salt);
+                } catch (java.security.NoSuchAlgorithmException | java.security.spec.InvalidKeySpecException e) {
+                    //TODO add error message here
                 }
-                JOptionPane.showMessageDialog(null, newUser.getUsername() + " User " + " Added");
-                repaint();
-                clearText();
-            } else {
-                JOptionPane.showMessageDialog(null, "No Department Selected", "All users must belong to a department", JOptionPane.ERROR_MESSAGE);
+                if (_userDepartment != null || dbModel.findUser(username) == false) {
+                    newUser = new User(username, encryptedPassword, salt, email);
+                    try {
+                        dbModel.insertUser(username, password, email, _userDepartment, newUser.isAdmin());
+                        dbModel.addUserDept(username, _userDepartment);
+                    } catch (SQLException | ClassNotFoundException ex) {
+                        Logger.getLogger(AddUsers.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                    ArrayList<User> departmentUsers = GUI._allDepts.get(_userDepartment);
+                    if (departmentUsers == null) {
+                        departmentUsers = new ArrayList<>();
+                    }
+                    departmentUsers.add(newUser);
+                    GUI._allDepts.put(_userDepartment, departmentUsers);
+                    if (chkAdmin.isSelected()) {
+                        newUser.makeAdmin(true);
+                    }
+                    GUI._userInfo.put(newUser, new ArrayList<>());
+                    Serialize.saveUserFiles(Serialize._fileLocation);
+                    JOptionPane.showMessageDialog(null, newUser.getUsername() + " User " + " Added");
+                    repaint();
+                    clearText();
+                } else {
+                    if (dbModel.findUser(username) == true) {
+                        JOptionPane.showMessageDialog(null, "This Username (" + username + ") already exist in the database", "Username Error", JOptionPane.ERROR_MESSAGE);
+                    }else{
+                        JOptionPane.showMessageDialog(null, "No Department Selected", "All users must belong to a department", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+                
+            } catch (ClassNotFoundException ex) {
+                Logger.getLogger(AddUsers.class.getName()).log(Level.SEVERE, null, ex);
+                //TODO add error message here
             }
 
         }
     }//GEN-LAST:event_btnCreateActionPerformed
 
-    
     private void clearText() {
         txtUsername.setText("");
         txtPassword.setText("");
@@ -254,13 +259,7 @@ public class AddUsers extends javax.swing.JFrame {
         txtEmail.setText("");
     }
     private void btnBackActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnBackActionPerformed
-        try {
-            // TODO add your handling code here:
-            this.dispose();
-            new GUI().setVisible(true);
-        } catch (IOException ex) {
-            Logger.getLogger(AddUsers.class.getName()).log(Level.SEVERE, null, ex);
-        }
+        this.dispose();
     }//GEN-LAST:event_btnBackActionPerformed
 
     private void cmbDeptActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_cmbDeptActionPerformed

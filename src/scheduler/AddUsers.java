@@ -216,9 +216,14 @@ public class AddUsers extends javax.swing.JFrame {
                 }
                 if (_userDepartment != null || dbModel.findUser(username) == false) {
                     newUser = new User(username, encryptedPassword, salt, email);
+                    if (chkAdmin.isSelected()) {
+                        newUser.makeAdmin(true);
+                    }
                     try {
                         dbModel.insertUser(username, password, email, _userDepartment, newUser.isAdmin());
                         dbModel.addUserDept(username, _userDepartment);
+                        GUI._userInfo.put(newUser, new ArrayList<>());
+                        Serialize.saveUserFiles(Serialize._fileLocation);
                     } catch (SQLException | ClassNotFoundException ex) {
                         Logger.getLogger(AddUsers.class.getName()).log(Level.SEVERE, null, ex);
                     }
@@ -228,22 +233,15 @@ public class AddUsers extends javax.swing.JFrame {
                     }
                     departmentUsers.add(newUser);
                     GUI._allDepts.put(_userDepartment, departmentUsers);
-                    if (chkAdmin.isSelected()) {
-                        newUser.makeAdmin(true);
-                    }
-                    GUI._userInfo.put(newUser, new ArrayList<>());
-                    Serialize.saveUserFiles(Serialize._fileLocation);
                     JOptionPane.showMessageDialog(null, newUser.getUsername() + " User " + " Added");
                     repaint();
                     clearText();
+                } else if (dbModel.findUser(username) == true) {
+                    JOptionPane.showMessageDialog(null, "This Username (" + username + ") already exist in the database", "Username Error", JOptionPane.ERROR_MESSAGE);
                 } else {
-                    if (dbModel.findUser(username) == true) {
-                        JOptionPane.showMessageDialog(null, "This Username (" + username + ") already exist in the database", "Username Error", JOptionPane.ERROR_MESSAGE);
-                    }else{
-                        JOptionPane.showMessageDialog(null, "No Department Selected", "All users must belong to a department", JOptionPane.ERROR_MESSAGE);
-                    }
+                    JOptionPane.showMessageDialog(null, "No Department Selected", "All users must belong to a department", JOptionPane.ERROR_MESSAGE);
                 }
-                
+
             } catch (ClassNotFoundException ex) {
                 Logger.getLogger(AddUsers.class.getName()).log(Level.SEVERE, null, ex);
                 //TODO add error message here
@@ -302,7 +300,7 @@ public class AddUsers extends javax.swing.JFrame {
     private javax.swing.JButton btnBack;
     private javax.swing.JButton btnCreate;
     private javax.swing.JCheckBox chkAdmin;
-    private static javax.swing.JComboBox<String> cmbDept;
+    public static javax.swing.JComboBox<String> cmbDept;
     private javax.swing.JLabel lblPassword;
     private javax.swing.JLabel lblPassword1;
     private javax.swing.JLabel lblPassword2;

@@ -69,6 +69,8 @@ public class CreateEvent extends javax.swing.JFrame {
         txtEventDescr = new javax.swing.JTextField();
         jLabel6 = new javax.swing.JLabel();
 
+        setResizable(false);
+
         jLabel1.setText("Event Title");
 
         txtEventName.addActionListener(new java.awt.event.ActionListener() {
@@ -150,7 +152,7 @@ public class CreateEvent extends javax.swing.JFrame {
                         .addComponent(jLabel5)
                         .addGap(18, 18, 18)
                         .addComponent(jScrollPane1, javax.swing.GroupLayout.PREFERRED_SIZE, 182, javax.swing.GroupLayout.PREFERRED_SIZE)
-                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 28, Short.MAX_VALUE)
+                        .addPreferredGap(javax.swing.LayoutStyle.ComponentPlacement.RELATED, 39, Short.MAX_VALUE)
                         .addComponent(rbnDept)))
                 .addContainerGap())
         );

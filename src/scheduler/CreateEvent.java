@@ -200,7 +200,13 @@ public class CreateEvent extends javax.swing.JFrame {
         }else{
             String eventDescr = txtEventDescr.getText();
         Date eventDate = jdpDateSelector.getDate();
+        if(eventDate == null){
+            JOptionPane.showMessageDialog(null, "Please select a date", "DATE ERROR", JOptionPane.ERROR_MESSAGE);
+        }
         String time = jspTimeSelector.getValue().toString();
+        if(time.isEmpty()){
+            JOptionPane.showMessageDialog(null, "Please add an event time", "TIME ERROR", JOptionPane.ERROR_MESSAGE);
+        }
         User creator = GUI._currentUser;
         //time matching for easy access
         String timePattern = "\\d{2}:\\d{2}:\\d{2}";

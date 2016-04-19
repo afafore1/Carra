@@ -40,6 +40,7 @@ import javax.swing.table.DefaultTableModel;
 /**
  *
  * @author Ayomitunde
+ * @author Cliff
  */
 public class GUI extends javax.swing.JFrame {
 
@@ -47,7 +48,7 @@ public class GUI extends javax.swing.JFrame {
      * These only affect the appearance of the "hidden" table that is 
      *   displayed when you click on a specific date
      */
-    private java.awt.Color BACKGROUND_COLOR = new java.awt.Color(204, 255, 204);
+    private java.awt.Color BACKGROUND_COLOR = new java.awt.Color(204, 204, 255);
     private java.awt.Color FOREGROUND_COLOR = new java.awt.Color(51, 51, 51);
     private java.awt.Color BTN_BACKGROUND_COLOR = new java.awt.Color(102, 204, 255);
     private java.awt.Font BTN_FONT = new java.awt.Font("Tahoma", 1, 11);
@@ -107,6 +108,10 @@ public class GUI extends javax.swing.JFrame {
         checkForNotification = (ActionEvent e) -> {
             checkNotify();
         };
+        updateCalendar(); /* This ensures that there is no delay between when
+                        the calendar is loaded and when it is populated.
+                        However, if no users exist, this code will cause using
+                        the home button to login to crash the application */
         checkNotify(); //call once when gui starts
         Timer checkUpdt = new Timer(5000, updateCalendar);
         Timer checkNotifyTimer = new Timer(15000, checkForNotification);
@@ -120,14 +125,14 @@ public class GUI extends javax.swing.JFrame {
             }
         };
         Timer checkEvUp = new Timer(15000, showEventsUp);
-        checkEvUp.start();
+        //checkEvUp.start();
     }
     
     public static void snooze(String eventName, String eventDescr, String eventTime) {
         ActionListener notifyEvent = (ActionEvent e) -> {
             new Notification(eventName, eventDescr, eventTime);
         };
-        Timer snoozeTimer = new Timer(5*60*1000, notifyEvent);
+        Timer snoozeTimer = new Timer(1*60*1000, notifyEvent);
         snoozeTimer.start();
         snoozeTimer.setRepeats(false);
     }
